@@ -288,7 +288,6 @@ static int write_new_fs(char *path, int fd, u8 quorum_count)
 	struct scoutfs_key *key;
 	struct timeval tv;
 	char uuid_str[37];
-	__le16 *own;
 	void *zeros;
 	u64 blkno;
 	u64 limit;
@@ -388,10 +387,9 @@ static int write_new_fs(char *path, int fd, u8 quorum_count)
 	btitem = &bt->items[le16_to_cpu(bt->nr_items)];
 	le16_add_cpu(&bt->nr_items, 1);
 	key = &btitem->key;
-	own = (void *)bt + SCOUTFS_BLOCK_LG_SIZE -
+	inode = (void *)bt + SCOUTFS_BLOCK_LG_SIZE -
 	      SCOUTFS_BTREE_LEAF_ITEM_HASH_BYTES -
-	      SCOUTFS_BTREE_VAL_OWNER_BYTES;
-	inode = (void *)own - sizeof(*inode);
+	      sizeof(*inode);
 
 	par->right = cpu_to_le16((void *)&btitem->node -
 				 (void *)&bt->item_root);
@@ -399,8 +397,7 @@ static int write_new_fs(char *path, int fd, u8 quorum_count)
 	btitem->node.parent = cpu_to_le16((void *)par - (void *)&bt->item_root);
 	btitem->val_off = cpu_to_le16((void *)inode - (void *)bt);
 	btitem->val_len = cpu_to_le16(sizeof(*inode));
-	le16_add_cpu(&bt->total_item_bytes, le16_to_cpu(btitem->val_len) +
-					    SCOUTFS_BTREE_VAL_OWNER_BYTES);
+	le16_add_cpu(&bt->total_item_bytes, le16_to_cpu(btitem->val_len));
 
 	key->sk_zone = SCOUTFS_FS_ZONE;
 	key->ski_ino = cpu_to_le64(SCOUTFS_ROOT_INO);
@@ -418,7 +415,6 @@ static int write_new_fs(char *path, int fd, u8 quorum_count)
 
 	leaf_item_hash_insert(bt, &btitem->key,
 			      cpu_to_le16((void *)btitem - (void *)bt));
-	*own = cpu_to_le16((void *)btitem - (void *)bt);
 
 	le16_add_cpu(&bt->total_item_bytes, le16_to_cpu(bt->nr_items) *
 		     sizeof(struct scoutfs_btree_item));
